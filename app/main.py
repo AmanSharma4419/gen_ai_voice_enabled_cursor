@@ -16,7 +16,7 @@ checkpointer = MongoDBSaver(
 graphwithmongo = graphstreamwithcheckpointer(checkpointer=checkpointer)
 
 # Config identifies conversation thread (required for checkpoints)
-config = {"configurable": {"thread_id": "chat-session-1"}}
+config = {"configurable": {"thread_id": "chat-session-01"}}
 
 recognizer = sr.Recognizer()
 recognizer.pause_threshold = 2
@@ -37,17 +37,26 @@ def voice_chatbot():
                 print("👋 Exiting chatbot...")
                 break
 
+            # Process the message through the graph
+            final_state = None
             for event in graphwithmongo.stream(
                 {"messages": [HumanMessage(content=text)]},
                 stream_mode="values",
                 config=config
             ):
-                if "messages" in event:
-                    event["messages"][-1].pretty_print()
+                final_state = event
+                if "messages" in event and event["messages"]:
+                    # Print only the latest message to avoid duplication
+                    if not isinstance(event["messages"][-1], HumanMessage):
+                        event["messages"][-1].pretty_print()
 
         except sr.UnknownValueError:
-            print(" Sorry, I could not understand the audio.")
+            print("❌ Sorry, I could not understand the audio.")
         except sr.RequestError:
-            print(" Could not request results, check your internet connection.")
+            print("⚠️ Could not request results, check your internet connection.")
+        except Exception as e:
+            print(f"❌ Error: {e}")
 
-voice_chatbot()
+
+if __name__ == "__main__":
+    voice_chatbot()
