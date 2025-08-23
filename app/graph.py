@@ -1,4 +1,5 @@
 from typing import Annotated
+import requests
 from typing_extensions import TypedDict
 from dotenv import load_dotenv
 import os
@@ -25,10 +26,31 @@ def run_command(cmd: str):
     except Exception as e:
         return f"Error running command: {e}"
 
+@tool
+def get_weather(city: str):
+    """Fetch real weather forecast using OpenWeatherMap API."""
+    try:
+        url = f"http://api.openweathermap.org/data/2.5/weather?q={city}&appid={WEATHER_API_KEY}&units=metric"
+        response = requests.get(url)
+        response.raise_for_status()   # raises HTTPError if bad request
+        data = response.json()
+        print(data,"data")
+        temp = data["main"]["temp"]
+        condition = data["weather"][0]["description"]
+        return f"Weather in {city}: {condition}, {temp}°C"
+
+    except requests.exceptions.HTTPError as e:
+        return f"HTTP error: {e}"
+    except requests.exceptions.RequestException as e:
+        return f"Network error: {e}"
+    except KeyError:
+        return "Unexpected API response format."
+    except Exception as e:
+        return f"Unknown error: {e}"
 
 
 llm = init_chat_model(model_provider="openai", model="gpt-4.1")
-llm_with_tools = llm.bind_tools([run_command])
+llm_with_tools = llm.bind_tools([run_command,get_weather])
 
 
 
@@ -36,7 +58,7 @@ class State(TypedDict):
     messages: Annotated[list, add_messages]
 
 
-tools = [run_command]
+tools = [run_command,get_weather]
 tools_by_name = {tool.name: tool for tool in tools}
 
 
